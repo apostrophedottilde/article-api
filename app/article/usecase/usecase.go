@@ -3,8 +3,6 @@ package usecase
 import (
 	"github.com/apostrophedottilde/blog-article-api/app/article"
 	"github.com/apostrophedottilde/blog-article-api/app/article/model"
-	"strconv"
-	"time"
 )
 
 type usecase struct {
@@ -12,9 +10,6 @@ type usecase struct {
 }
 
 func (usecase *usecase) Create(obj model.ArticleModel) (string, error) {
-	nowInMillisString := strconv.Itoa(int(time.Now().UnixNano()))
-	obj.Created = nowInMillisString
-	obj.Updated = nowInMillisString
 	savedEntity, err := usecase.repository.Create(obj)
 	if err != nil {
 		return savedEntity, err
@@ -41,8 +36,6 @@ func (usecase *usecase) FindAll() ([]model.ArticleModel, error) {
 }
 
 func (usecase *usecase) Update(id string, model model.ArticleModel) error {
-	nowInMillisString := strconv.Itoa(int(time.Now().UnixNano()))
-	model.Updated = nowInMillisString
 	err := usecase.repository.Update(id, model)
 	if err != nil {
 		return err

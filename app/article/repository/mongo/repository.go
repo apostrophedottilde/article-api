@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
+	"strconv"
 	"time"
 )
 
@@ -23,6 +24,9 @@ type ArticleRepository struct {
 }
 
 func (repo *ArticleRepository) Create(entity model.ArticleModel) (string, error) {
+	nowInMillisString := strconv.Itoa(int(time.Now().UnixNano()))
+	entity.Created = nowInMillisString
+	entity.Updated = nowInMillisString
 	res, err := repo.client.InsertOne(entity)
 
 	if err != nil {
@@ -35,11 +39,11 @@ func (repo *ArticleRepository) Create(entity model.ArticleModel) (string, error)
 	return docID.Hex(), nil
 }
 
-func (repo *ArticleRepository) FindOne(id string) (model.ArticleModel, error) {
+func (repo *ArticleRepository) FindOne(id string) (*model.ArticleModel, error) {
 	docID, err := primitive.ObjectIDFromHex(id)
 
 	if err != nil {
-		return model.ArticleModel{}, errors.New("ERROR PARSING ARTICLE ID - MALFORMED")
+		return nil, errors.New("ERROR PARSING ARTICLE ID - MALFORMED")
 	}
 
 	filter := bson.D{{"_id", docID}}
@@ -48,10 +52,10 @@ func (repo *ArticleRepository) FindOne(id string) (model.ArticleModel, error) {
 	err = repo.client.FindOne(filter).Decode(&result)
 
 	if err != nil {
-		return result, errors.New("ERROR NOT FOUND ARTICLE")
+		return nil, errors.New("ERROR NOT FOUND ARTICLE")
 	}
 
-	return result, nil
+	return &result, nil
 }
 
 func (repo *ArticleRepository) FindAll() ([]model.ArticleModel, error) {
@@ -73,6 +77,9 @@ func (repo *ArticleRepository) FindAll() ([]model.ArticleModel, error) {
 }
 
 func (repo *ArticleRepository) Update(id string, updated model.ArticleModel) error {
+	nowInMillisString := strconv.Itoa(int(time.Now().UnixNano()))
+	updated.Updated = nowInMillisString
+
 	docID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return errors.New("ERROR PARSING ARTICLE ID - MALFORMED")
