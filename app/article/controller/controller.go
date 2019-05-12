@@ -17,10 +17,21 @@ type ArticleController struct {
 
 func (ac *ArticleController) Create(w http.ResponseWriter, r *http.Request) {
 	bodyBytes, _ := ioutil.ReadAll(r.Body)
+
+	badlyFormedXML := xml.Unmarshal(bodyBytes, new(interface{})) != nil
+
+	if badlyFormedXML {
+		sendBadResponse(w, "Request body must be well formed XML!!!", 400)
+		return
+	}
+
 	stringBody := bytes.NewBuffer(bodyBytes).String()
+
 	unescapedText := html.UnescapeString(stringBody)
 	newArticle := model.ArticleModel{Content: unescapedText}
+
 	createdId, err := ac.Usecase.Create(newArticle)
+
 	if err != nil {
 		sendBadResponse(w, err.Error(), 500)
 		return
@@ -34,29 +45,37 @@ func (ac *ArticleController) Create(w http.ResponseWriter, r *http.Request) {
 func (ac *ArticleController) FindOne(w http.ResponseWriter, r *http.Request) {
 	id := getId(r)
 	res, err := ac.Usecase.FindOne(id)
+
 	if err != nil {
 		sendBadResponse(w, err.Error(), 404)
 		return
 	}
+
 	marshaled, err := xml.MarshalIndent(res.Response(), "", "")
+
 	if err != nil {
 		sendBadResponse(w, err.Error(), 500)
 		return
 	}
+
 	buildAndPublishHappyResponse(w, []byte(marshaled), 200)
 }
 
 func (ac *ArticleController) Update(w http.ResponseWriter, r *http.Request) {
 	id := getId(r)
 	bodyBytes, _ := ioutil.ReadAll(r.Body)
+
 	newArticle := model.ArticleModel{
 		Content: string(bodyBytes),
 	}
+
 	err := ac.Usecase.Update(id, newArticle)
+
 	if err != nil {
 		sendBadResponse(w, err.Error(), 500)
 		return
 	}
+
 	buildAndPublishHappyResponse(w, []byte(""), 204)
 }
 
@@ -65,11 +84,14 @@ func (ac *ArticleController) FindAll(w http.ResponseWriter, r *http.Request) {
 	var collection model.ArticleCollection
 	collection.Articles = articles
 	collectionResponse := collection.Response()
+
 	marshaled, err := xml.MarshalIndent(collectionResponse, "", "")
+
 	if err != nil {
 		sendBadResponse(w, err.Error(), 500)
 		return
 	}
+
 	buildAndPublishHappyResponse(w, marshaled, 200)
 }
 

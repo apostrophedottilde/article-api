@@ -6,5 +6,6 @@ COPY . /app
 WORKDIR /app
 RUN go get -d -v
 RUN go mod download
+RUN go test ./...
 RUN go build
 ENTRYPOINT ["go", "run", "main.go"]
