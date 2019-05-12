@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/apostrophedottilde/blog-article-api/app/article/model"
+	"github.com/apostrophedottilde/blog-article-api/app/article/repository/mongo/wrapper"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -18,15 +19,11 @@ var (
 )
 
 type ArticleRepository struct {
-	client mongo.Client
+	client wrapper.MongoDAL
 }
 
-func (ps *ArticleRepository) Create(entity model.ArticleModel) (string, error) {
-	collection := ps.client.Database(dbName).Collection(documentCollection)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-
-	res, err := collection.InsertOne(ctx, entity)
-	defer cancel()
+func (repo *ArticleRepository) Create(entity model.ArticleModel) (string, error) {
+	res, err := repo.client.InsertOne(entity)
 
 	if err != nil {
 		return "", errors.New("ERROR PERSISTING NEW ARTICLE")
@@ -38,10 +35,7 @@ func (ps *ArticleRepository) Create(entity model.ArticleModel) (string, error) {
 	return docID.Hex(), nil
 }
 
-func (ps *ArticleRepository) FindOne(id string) (model.ArticleModel, error) {
-	collection := ps.client.Database(dbName).Collection(documentCollection)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-
+func (repo *ArticleRepository) FindOne(id string) (model.ArticleModel, error) {
 	docID, err := primitive.ObjectIDFromHex(id)
 
 	if err != nil {
@@ -51,8 +45,7 @@ func (ps *ArticleRepository) FindOne(id string) (model.ArticleModel, error) {
 	filter := bson.D{{"_id", docID}}
 
 	var result model.ArticleModel
-	err = collection.FindOne(ctx, filter).Decode(&result)
-	defer cancel()
+	err = repo.client.FindOne(filter).Decode(&result)
 
 	if err != nil {
 		return result, errors.New("ERROR NOT FOUND ARTICLE")
@@ -61,12 +54,8 @@ func (ps *ArticleRepository) FindOne(id string) (model.ArticleModel, error) {
 	return result, nil
 }
 
-func (ps *ArticleRepository) FindAll() ([]model.ArticleModel, error) {
-	collection := ps.client.Database(dbName).Collection(documentCollection)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	cur, err := collection.Find(ctx, bson.M{})
-	defer cancel()
-
+func (repo *ArticleRepository) FindAll() ([]model.ArticleModel, error) {
+	cur, ctx, err := repo.client.Find(bson.M{})
 	if err != nil {
 		return nil, errors.New("ERROR FETCHING COLLECTION OF ARTICLES")
 	}
@@ -83,10 +72,7 @@ func (ps *ArticleRepository) FindAll() ([]model.ArticleModel, error) {
 	return projects, nil
 }
 
-func (ps *ArticleRepository) Update(id string, updated model.ArticleModel) error {
-	collection := ps.client.Database(dbName).Collection(documentCollection)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+func (repo *ArticleRepository) Update(id string, updated model.ArticleModel) error {
 	docID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return errors.New("ERROR PARSING ARTICLE ID - MALFORMED")
@@ -94,21 +80,21 @@ func (ps *ArticleRepository) Update(id string, updated model.ArticleModel) error
 	filter := bson.D{{"_id", docID}}
 
 	var result model.ArticleModel
-	err = collection.FindOne(ctx, filter).Decode(&result)
+	err = repo.client.FindOne(filter).Decode(&result)
 	result.Content = updated.Content
 	result.Updated = updated.Updated
 
 	if err != nil {
 		return errors.New("ERROR NOT FOUND ARTICLE - CAN'T UPDATE ANYTHING")
 	}
-	replace := collection.FindOneAndReplace(ctx, filter, result)
+	replace := repo.client.FindOneAndReplace(filter, result)
 	if replace == nil {
 		return errors.New("ERROR UPDATING ARTICLE")
 	}
 	return nil
 }
 
-func NewRepository() *ArticleRepository {
+func NewRepository(client wrapper.MongoDAL) *ArticleRepository {
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	mClient, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://mongodb:27017"))
 	if err != nil {
@@ -120,6 +106,6 @@ func NewRepository() *ArticleRepository {
 		errors.New("ERROR PINGING DATABASE")
 	}
 	return &ArticleRepository{
-		client: *mClient,
+		client: client,
 	}
 }
